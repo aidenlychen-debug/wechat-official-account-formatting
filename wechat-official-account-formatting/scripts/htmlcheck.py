@@ -3,7 +3,7 @@
 The rule (last line keeps at least two characters plus punctuation; no line holds only punctuation) is enforced
 by build_html.py itself: the tail of every block is locked in a nowrap span. This script verifies it the hard way.
 It renders the page in Chrome and sweeps phone widths 340 to 450 px one pixel at a time, with four font set-ups:
-three Latin stand-ins (narrow, medium, wide) with a sans CJK font for iPhone, and a serif set for Android phones
+three Latin stand-ins (narrow, medium, wide) with a sans CJK font, and a serif set for Android phones
 that fall back to serif. Every body paragraph, heading, quote line (each <br> segment) and reference is checked,
 and so is overflow: no character may run past the right edge of its block (a long unbreakable tail would).
 

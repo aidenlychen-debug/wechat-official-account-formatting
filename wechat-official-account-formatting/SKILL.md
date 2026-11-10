@@ -11,9 +11,9 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 
 ## 流程
 
-1. **标记原文**：按第 9 节的标记写法把原文写成标记稿（`assets/sample_marked.txt` 是一份完整示例）。只加标记，不改字。
+1. **标记原文**：按第 9 节的标记写法把原文写成标记稿（`assets/sample_marked.txt` 是一份完整示例）。只加标记，不改字。文中的人名写进同目录的 `terms.txt`，排版时整体不拆行（第 5 节）。
 2. **排版**：`python3 scripts/build_html.py 标记稿.txt 文章_vN.html art "第 N 版"`。只需要 Python 3。
-3. **自查**：`python3 scripts/selfcheck.py 文章_vN.html 标记稿.txt` 必须 PASS；有 Playwright 和 Chrome 时，再跑 `python3 scripts/htmlcheck.py 文章_vN.html`，TOTAL issues 必须是 0。
+3. **自查**：`python3 scripts/selfcheck.py 文章_vN.html 标记稿.txt` 必须 PASS；有 Playwright 和 Chrome 时，再跑 `python3 scripts/htmlcheck.py 文章_vN.html`，TOTAL issues 必须是 0，然后跑 `python3 scripts/phonecheck.py 文章_vN.html`，看小屏和大屏两种宽度。
 4. **内文配图**：按 `references/images.md` 第 9 节的三种方式之一生成（连了生图工具就直接生图；在 Claude Code 里写生图指令交给 ChatGPT Work；在 ChatGPT Work 里直接生图），图片放进 art 文件夹，用 `@@IMG 名字` 引用。
 5. **封面**：按 `references/cover.md` 出四张不同风格的封面给用户挑，单独一份封面生图要求，和内文配图分开生成，垫图用同一套。
 6. **独立检查**：按 `references/checklist.md`，另开一个没看过制作过程的检查方，最多 3 轮。
@@ -21,7 +21,7 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 
 ## 0. 总原则
 
-- **不改原文。** 断行规则由排版脚本保证（第 5 节），不需要为断行改字。用户另外要求改字时，每处改动都要列给用户：从什么改成什么。
+- **不改原文。** 断行规则由排版脚本保证（第 5 节），不需要为断行改字。字距不均时可以微调表述（第 5 节）。用户另外要求改字时，每处改动都要列给用户：从什么改成什么。
 - 回复用口语化中文，不用破折号。
 - **每次交付都带版本号**：文件名加 `_vN`，页面顶部也标「第 N 版」。同名文件再次下载时，浏览器会自动改名，用户很容易贴错版本。
 - 用户发截图反馈时，先量截图再改：用像素算出比例，判断贴的是哪一版、用的是什么字体。Windows 电脑上没有苹方，标题会换成微软雅黑，正文会换成宋体加 Cambria，字在行里的位置和苹果设备不一样。
@@ -41,12 +41,13 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 - **字体栈**
   - 正文：`Optima-Regular, Optima, PingFangSC-light, PingFangTC-light, 'PingFang SC', Cambria, Cochin, Georgia, Times, 'Times New Roman', serif`
   - 标题：`Optima-Regular, Optima, PingFangSC-Regular, 'PingFang SC', 'Microsoft YaHei', sans-serif`
-- **正文容器**：id 为 article 的 section，style 是 `padding:0 14px;`。公众号自带两侧各 16px，所以文字区宽度是手机宽度减 60px，比如 375 宽的手机上是 315px，390 宽的是 330px，430 宽的是 370px。
+- **正文容器**：id 为 article 的 section，style 是 `padding:0 14px;`。公众号自带两侧各 16px，所以文字区宽度是手机宽度减 60px，比如 375 宽的手机上是 315px，390 宽的是 330px，430 宽的是 370px。成品页面按 402 宽的小屏手机预览（文字区 342px），交付前再确认 440 宽的大屏（文字区 380px）。
 
 | 元素 | 内联样式要点 |
 |---|---|
 | 正文段落 | margin 0 0 16px；17px；line-height 1.56；letter-spacing 0.5px；color #222222；两端对齐；overflow-wrap break-word（长网址放不下时才折开） |
 | 尾字锁定 | 每段、每个标题、引用块的每一行、参考资料的每一条，最后两个字连同后面的标点放进 `<span style="white-space:nowrap;">`，见第 5 节 |
+| 专有名词 | 人名、带空格的英文名、《》「」里的短词，整个放进 nowrap span，不拆到两行，见第 5 节 |
 | 含长英文的段落 | 段落里有 8 个字符以上的英文词（连字符也算，如 Markdown、Combinator、AI-Native）时改成左对齐，否则两端对齐会把中文拉散 |
 | 英文专名里的单个字母 | 和后面的词用不换行空格（U+00A0）连起来，比如 Y Combinator，人名缩写也一样，比如 Michael E. Porter，避免单个字母留在行尾 |
 | 重点 | span 加 `color:#E0301E;`，不加粗，不加荧光笔底色 |
@@ -103,6 +104,20 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 - 锁住的部分里，除去一个本来就不能断开的英文单词，再多出 12 个字以上时，selfcheck 会报错：这一段不能换行，窄屏上可能超出边界。
 - 很长的英文单词和网址本来就不能断开，正文、引用和参考资料都带 `overflow-wrap:break-word`，放不下时在词中间折行，不会撑出屏幕。
 
+**专有名词不拆行**：「Genie 4」拆成「Genie」和「4」两行、「李飞飞」拆成「李」和「飞飞」，读起来很割裂。`build_html.py` 会把专有名词整个放进 `white-space:nowrap` 的 span，放不下时整个挪到下一行。
+
+- 自动锁定：中间带空格的英文名（Genie 4、World Labs、Google DeepMind），以及《》「」里不超过 8 个字的词（《GTA》、「AI 教母」）。
+- 人名写进标记稿同目录的 `terms.txt`，一行一个，# 开头是注释。
+- 只锁名字，不讲究到每个词。常用词（机器人、自动驾驶）和概念词（世界模型）不锁，断成「世界」和「模型」也能读。
+- 尾字锁定碰到专有名词时，往前多锁一点，把整个名词一起锁进去，不会把名词切成两半。
+- 代价：名词整个挪到下一行时，上一行会空出这个名词的宽度，两端对齐把它分摊到字距里，这一行字距会变宽。锁的词越多越长，这样的行越多，所以只锁名字。
+
+**字距统一**：两端对齐会把一行末尾空出来的位置分摊到字距里。一行少排了一个字（名字整个挪下去、句号逗号不能放行首、尾字锁定带走两个字），这一行就比别的行松，看起来很怪。
+
+- `python3 scripts/phonecheck.py 文章_vN.html` 按 402 宽的小屏和 440 宽的大屏渲染，名词拆开、尾行单字和字距不均（uneven）都必须是 none。
+- 有 uneven 的行，就微调这一段的表述，让这一行排满或者让下一行接上：删一个可有可无的字、换个等长或差一两个字的说法，比如「原因在于」改成「原因是」、「刚刚发布了」改成「刚发布」、「准确预测」改成「准确地预测」。一处改动要同时照顾小屏和大屏，改完两种宽度都重查。
+- 只动措辞，不改意思，不加新内容。每处改动列给用户：从什么改成什么。
+
 公众号编辑器保留内联样式，粘贴后应该同样有效。第一次用、或者公众号编辑器更新以后，粘贴到后台用手机预览看一眼（360 或 414 宽的手机最容易出单字）。浏览器的避头尾规则本来就不会让一行以句号、逗号这类标点开头，所以段落中间也不会出现只有标点的行。
 
 **怎么查**：
@@ -138,16 +153,17 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 | `assets/covers/cover-illustration.png` | 封面参考：浅底、墨线插画 |
 | `assets/covers/cover-whitebust.png` | 封面参考：陶土橙底、白模半身像 |
 | `assets/quote-mark.png` | 引用块的水滴引号小图 |
-| `scripts/build_html.py` | 把标记稿排成可粘贴的 HTML，自带尾字锁定。只用 Python 标准库 |
+| `scripts/build_html.py` | 把标记稿排成可粘贴的 HTML，自带尾字锁定和专有名词锁定。只用 Python 标准库 |
 | `scripts/selfcheck.py` | 不用浏览器的结构检查：`python3 selfcheck.py 成品.html [标记稿.txt]`。只用 Python 标准库 |
 | `scripts/htmlcheck.py` | 断行实测：340 到 450px 每种宽度、四组字体，打印 TOTAL issues |
+| `scripts/phonecheck.py` | 小屏和大屏实测：名词有没有拆开、尾行有没有单字、哪几行字距最宽 |
 | `scripts/gapmeasure.py` | 量标题上下和段落之间实际看到的空白 |
 | `scripts/diagram.py` | 配图半自动排版：圆环、流程、容器三种图，输出坐标表、文字表和草图 |
 | `scripts/coversheet.py` | 封面对比图：每张的信息流缩略图和 1:1 裁切并排，给用户挑 |
 | `scripts/wireframe.py` | 手工排其他形式配图用的画布工具，里面的四个函数是 `assets/approved/` 四张定稿图的版式例子 |
 
-**标记写法**：`# 标题`、`## 键|一级标题`、`### 编号|键|二级标题`、`**重点**`、`@@PREFACE_END`（导语结束）、`@@IMG 名字`（图片放在 art 文件夹的 名字.png；不存在时显示虚线占位框，说明文字写在标记稿同目录的 placeholders.txt，一行一个「名字|说明」）、`@@QUOTE 引用文字`（用竖线 \| 手动断行）、`@@REFS` 加 `@@REF 条目` 和 `@@NOTE 注释`。块和块之间空一行。
+**标记写法**：`# 标题`、`## 键|一级标题`、`### 编号|键|二级标题`、`**重点**`、`@@PREFACE_END`（导语结束）、`@@IMG 名字`（图片放在 art 文件夹的 名字.png；不存在时显示虚线占位框，说明文字写在标记稿同目录的 placeholders.txt，一行一个「名字|说明」；专有名词写在同目录的 terms.txt，一行一个）、`@@QUOTE 引用文字`（用竖线 \| 手动断行）、`@@REFS` 加 `@@REF 条目` 和 `@@NOTE 注释`。块和块之间空一行。
 
-**运行环境**：排版和 selfcheck 只要 Python 3。htmlcheck、gapmeasure、diagram、wireframe、coversheet 还要 Pillow、NumPy 和 Playwright（`pip install pillow numpy playwright` 再 `playwright install chromium`）。Chrome 的路径可以用环境变量 CHROME_PATH 指定；不指定时先找 /usr/bin/google-chrome，没有就用 Playwright 自带的 Chromium。断行实测要用 Noto Sans CJK SC、Noto Serif CJK SC、Carlito、Liberation Sans、Liberation Serif、DejaVu Sans，缺了会打印警告。配图脚本的字体路径用环境变量 WENKAI_DIR 和 CAVEAT_FILE 指定。
+**运行环境**：排版和 selfcheck 只要 Python 3。htmlcheck、phonecheck、gapmeasure、diagram、wireframe、coversheet 还要 Pillow、NumPy 和 Playwright（`pip install pillow numpy playwright` 再 `playwright install chromium`）。Chrome 的路径可以用环境变量 CHROME_PATH 指定；不指定时先找 /usr/bin/google-chrome，没有就用 Playwright 自带的 Chromium。断行实测要用 Noto Sans CJK SC、Noto Serif CJK SC、Carlito、Liberation Sans、Liberation Serif、DejaVu Sans，缺了会打印警告。配图脚本的字体路径用环境变量 WENKAI_DIR 和 CAVEAT_FILE 指定。
 
 **没有浏览器的环境**（比如 Claude 网页版不能装 Chrome 时）：照常排版，跑 selfcheck；尾字锁定已经保证了断行规则。在检查结果表里写明「没跑浏览器实测」。配图坐标没法用脚本排时，按 `references/images.md` 第 6 节的间距规则手算，并在提示词里留出余量。

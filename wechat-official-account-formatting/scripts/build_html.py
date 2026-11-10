@@ -34,9 +34,28 @@ OPENING = set('「『《〈【〔［｛“‘（(["\'')     # kept with the char
 def latin(c):
     return c.isascii() and c.isalnum()
 
+# Proper nouns stay on one line: every occurrence sits in its own white-space:nowrap span, and the tail lock never
+# cuts through one. Terms come from terms.txt next to the marked text (names, one per line: 李飞飞 ...),
+# plus automatic ones: Latin names with spaces (Genie 4, World Labs, Fei-Fei Li) and short 《》/「」 quotes.
+TERMS_FILE = os.path.join(os.path.dirname(os.path.abspath(SRC)), 'terms.txt')
+TERMS = [l.strip() for l in open(TERMS_FILE, encoding='utf8') if l.strip() and not l.startswith('#')] if os.path.exists(TERMS_FILE) else []
+AUTO_TERM = re.compile(r'[A-Za-z][A-Za-z0-9.\-]*(?: [A-Z0-9][A-Za-z0-9.\-]*)+|《[^《》]{1,8}》|「[^「」]{1,8}」')
+MAX_TERM = 24
+
+def term_ids(text):
+    """for every character, the id of the proper noun it belongs to (None outside terms)"""
+    spans = [(m.start(), m.end()) for t in TERMS for m in re.finditer(re.escape(t), text)]
+    spans += [(m.start(), m.end()) for m in AUTO_TERM.finditer(text) if m.end() - m.start() <= MAX_TERM]
+    tid = [None] * len(text)
+    for k, (a, b) in enumerate(sorted(spans, key=lambda s: (s[0] - s[1], s[0]))):     # longest first
+        if b - a >= 2 and all(t is None for t in tid[a:b]):
+            tid[a:b] = [k] * (b - a)
+    return tid
+
 def render(segments, lock=True):
     """segments: [(text, inline style or None)] -> HTML; with lock, the tail is wrapped in a nowrap span."""
     chars = [(c, st) for t, st in segments for c in t]
+    tid = term_ids(''.join(c for c, _ in chars))
     cut = len(chars)
     if lock:
         n = 0
@@ -60,6 +79,8 @@ def render(segments, lock=True):
             cut = len(chars)
         while cut < len(chars) and (chars[cut][0].isspace() or (chars[cut][0] in TAIL_PUNCT and chars[cut][0] not in OPENING)):
             cut += 1           # a space or closing mark in front of the tail stays outside, so the line may break before it
+        while 0 < cut < len(chars) and tid[cut] is not None and tid[cut - 1] == tid[cut]:
+            cut -= 1           # never cut through a proper noun: the whole term goes into the tail
     def runs(cs):
         out, cur, buf = [], None, ''
         for c, st in cs + [(None, '__end__')]:
@@ -70,8 +91,18 @@ def render(segments, lock=True):
             if c is not None:
                 buf += c
         return ''.join(out)
-    head, tail = chars[:cut], chars[cut:]
-    return runs(head) + (f'<span style="white-space:nowrap;">{runs(tail)}</span>' if tail else '')
+    def runs_terms(lo, hi):
+        out, i = [], lo
+        while i < hi:
+            j = i
+            while j < hi and tid[j] == tid[i]:
+                j += 1
+            h = runs(chars[i:j])
+            out.append(f'<span style="white-space:nowrap;">{h}</span>' if tid[i] is not None else h)
+            i = j
+        return ''.join(out)
+    tail = chars[cut:]
+    return runs_terms(0, cut) + (f'<span style="white-space:nowrap;">{runs(tail)}</span>' if tail else '')
 
 def inline(text):
     parts = text.split('**')
