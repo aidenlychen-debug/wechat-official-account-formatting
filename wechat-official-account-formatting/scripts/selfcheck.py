@@ -6,15 +6,19 @@ It confirms what build_html.py promises; htmlcheck.py then measures real lines w
 Usage: selfcheck.py article.html [marked.txt]
 Checks:
   1. the copy area (#article) uses inline styles only: no <style>, <link>, <script>, no class other than "bp"
-  2. every text block (paragraph, heading, quote line, reference) ends in a locked tail: a white-space:nowrap span
+  2. mandatory left visual alignment with the article title: #article has zero horizontal padding (padding:0)
+     and dividers (<hr>) have zero horizontal margin so title, headings, body, quotes, and images share one left axis
+  3. every text block (paragraph, heading, quote line, reference) ends in a locked tail: a white-space:nowrap span
      holding at least two characters, so its last line can never be a single character or bare punctuation.
      Counting as in build_html.py: punctuation does not count; a run of Latin letters or digits counts as one
      character with 1 or 2 of them ("AI") and as two with 3 or more ("GitHub"). A locked tail that adds more
      than 12 unbreakable characters fails too (a Latin word that cannot break anyway is not counted).
-  3. images are embedded (data URIs); dashed placeholder boxes still waiting for an image are listed
-  4. the page shows a version label ("第 N 版")
-  5. no em dash (——) in the article text
-  6. with marked.txt: the article text is exactly the marked text (markup and markers ignored)
+  4. images are embedded (data URIs); dashed placeholder boxes still waiting for an image are listed
+  5. the page shows a version label ("第 N 版")
+  6. no em dash (——) in the article text
+  7. editorial de-numbering check: H2/H3 headings must not carry leading numeric/ordinal prefixes (01｜, 一、, 1., 第一，),
+     and body paragraphs must not carry stiff ordinal numbering (leading 一、/第一， or paired 第一…第二… chains)
+  8. with marked.txt: the article text is exactly the marked text (markup and markers ignored)
 Exit code 0 when everything passes, 1 otherwise."""
 import html, re, sys
 from html.parser import HTMLParser
@@ -83,10 +87,47 @@ if b.bad_tags:
     fails.append(f'tags that WeChat drops inside the copy area: {sorted(set(b.bad_tags))}')
 if b.classes - {'bp'}:
     fails.append(f'classes inside the copy area (styles must be inline): {sorted(b.classes - {"bp"})}')
+# Check mandatory left visual alignment with title: #article must not add horizontal padding, and <hr> must have 0 horizontal margin
+art_open = re.search(r'<section\s+id="article"[^>]*>', ART)
+art_style = re.search(r'style="([^"]*)"', art_open.group(0)).group(1) if art_open and re.search(r'style="([^"]*)"', art_open.group(0)) else ''
+if not re.search(r'(?:^|;)\s*padding\s*:\s*0(?:px)?(?:\s+0(?:px)?)?\s*(?:;|$)', art_style):
+    fails.append(f'#article must enforce padding:0 for strict left alignment with title (got style="{art_style}")')
+for hr_m in re.finditer(r'<hr\s+[^>]*style="([^"]*)"', ART):
+    m_mar = re.search(r'margin\s*:\s*([^;"]+)', hr_m.group(1))
+    if m_mar:
+        toks = m_mar.group(1).strip().split()
+        if (len(toks) == 2 and toks[1] not in ('0', '0px')) or (len(toks) == 4 and (toks[1] not in ('0', '0px') or toks[3] not in ('0', '0px'))):
+            fails.append(f'<hr> horizontal margin must be 0 for strict left alignment (got margin:{m_mar.group(1)})')
+
+HEADING_ORD_RE = re.compile(
+    r'^(?:'
+    r'(?:0?\d{1,2})\s*[｜|、.．:：]\s*'
+    r'|[一二三四五六七八九十]+[、.．:：｜|]\s*'
+    r'|[（(][一二三四五六七八九十\d]+[）)]\s*'
+    r'|第[一二三四五六七八九十\d]+[章节点部分条步个项，、：:\s]'
+    r')'
+)
+BODY_LEAD_ORD_RE = re.compile(
+    r'^(?:'
+    r'第[一二三四五六七八九十\d]+[，、：:\s]'
+    r'|[一二三四五六七八九十]+[、.．]\s*'
+    r'|\d+[、.．]\s*'
+    r'|[（(][一二三四五六七八九十\d]+[）)]\s*'
+    r')'
+)
+BODY_CHAIN_ORD_RE = re.compile(r'第[一二三四五六七八九十]+[，、：:]')
 checked = 0
 for blk in b.blocks:
     if blk['img']:
         continue
+    full_blk_text = ''.join(''.join(c for c, _ in s) for s in blk['segs']).strip()
+    if blk['tag'] in ('h2', 'h3') and HEADING_ORD_RE.match(full_blk_text):
+        fails.append(f'heading must not start with numeric/ordinal prefix in <{blk["tag"]}>: {full_blk_text[:24]}')
+    if blk['tag'] == 'p' and full_blk_text and not full_blk_text.startswith('【配图位置】') and not full_blk_text.startswith('注：'):
+        if BODY_LEAD_ORD_RE.match(full_blk_text):
+            fails.append(f'body paragraph starts with ordinal prefix (preprocess into natural prose): {full_blk_text[:24]}')
+        elif len(BODY_CHAIN_ORD_RE.findall(full_blk_text)) >= 2:
+            fails.append(f'body paragraph contains chained ordinals (第一/第二…) — preprocess into natural prose: {full_blk_text[:28]}')
     for seg in blk['segs']:
         text = ''.join(c for c, _ in seg).strip()
         if not text or text.startswith('【配图位置】') or text.startswith('生成后替换'):

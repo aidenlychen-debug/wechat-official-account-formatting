@@ -114,7 +114,7 @@ def head_runs(title):
                    for t in re.split(r'([A-Za-z0-9]+)', title) if t])
 
 def divider(top=30, bottom=30):
-    return (f'<hr style="margin:{top}px 8px {bottom}px 8px;border:0;height:1px;'
+    return (f'<hr style="margin:{top}px 0 {bottom}px 0;border:0;height:1px;'
             'background-image:linear-gradient(to right, rgba(226,112,98,0), rgba(226,112,98,0.9), rgba(226,112,98,0));" />')
 
 parts = []
@@ -206,7 +206,7 @@ page = f'''<!doctype html>
     <div style="margin-top:8px;font-size:14px;color:#B2B2B2;">以下为正文（复制范围）</div>
   </div>
   <div style="padding:14px 16px 24px 16px;">
-<section id="article" style="padding:0 14px;">
+<section id="article" style="padding:0;">
 {article}
 </section>
   </div>

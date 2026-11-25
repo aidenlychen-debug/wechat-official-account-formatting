@@ -11,9 +11,9 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 
 ## 流程
 
-1. **标记原文**：按第 9 节的标记写法把原文写成标记稿（`assets/sample_marked.txt` 是一份完整示例）。只加标记，不改字。文中的人名写进同目录的 `terms.txt`，排版时整体不拆行（第 5 节）。
+1. **文本预处理与标记原文**：先做文本去编号预处理（去掉一级标题、二级标题里自带的 `01｜`、`一、`、`1.`、`第一，` 等冗余序数编号，同时把正文里「第一……第二……第三……」「一、……二、……」这类生硬的序数枚举改写成自然流畅的过渡句，改动清单列给用户），再按第 9 节的标记写法把原文写成标记稿（`assets/sample_marked.txt` 是一份完整示例）。除必要的去编号预处理外不改写原文观点和用词。文中的人名写进同目录的 `terms.txt`，排版时整体不拆行（第 5 节）。
 2. **排版**：`python3 scripts/build_html.py 标记稿.txt 文章_vN.html art "第 N 版"`。只需要 Python 3。
-3. **自查**：`python3 scripts/selfcheck.py 文章_vN.html 标记稿.txt` 必须 PASS；有 Playwright 和 Chrome 时，再跑 `python3 scripts/htmlcheck.py 文章_vN.html`，TOTAL issues 必须是 0，然后跑 `python3 scripts/phonecheck.py 文章_vN.html`，看小屏和大屏两种宽度。
+3. **自查**：`python3 scripts/selfcheck.py 文章_vN.html 标记稿.txt` 必须 PASS（含左侧与标题强制对齐检查、标题/正文去序数检查、尾字锁定检查）；有 Playwright 和 Chrome 时，再跑 `python3 scripts/htmlcheck.py 文章_vN.html`，TOTAL issues 必须是 0，然后跑 `python3 scripts/phonecheck.py 文章_vN.html`，看小屏和大屏两种宽度。
 4. **内文配图**：按 `references/images.md` 第 9 节的三种方式之一生成（连了生图工具就直接生图；在 Claude Code 里写生图指令交给 ChatGPT Work；在 ChatGPT Work 里直接生图），图片放进 art 文件夹，用 `@@IMG 名字` 引用。
 5. **封面**：按 `references/cover.md` 出四张不同风格的封面给用户挑，单独一份封面生图要求，和内文配图分开生成，垫图用同一套。
 6. **独立检查**：按 `references/checklist.md`，另开一个没看过制作过程的检查方，最多 3 轮。
@@ -21,7 +21,7 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 
 ## 0. 总原则
 
-- **不改原文。** 断行规则由排版脚本保证（第 5 节），不需要为断行改字。字距不均时可以微调表述（第 5 节）。用户另外要求改字时，每处改动都要列给用户：从什么改成什么。
+- **不改写原意，但强制做去编号预处理。** 断行规则由排版脚本保证（第 5 节），不需要为断行改字。进入排版前先做文本预处理：剥离一级标题、二级标题上的数字和序数标记，并把正文里机械的「第一、第二、第三」枚举改写成自然衔接（详见第 4 节）。字距不均时可以微调表述（第 5 节）。所有预处理改字和用户要求改字，都要列成对照清单给用户：从什么改成什么。
 - 回复用口语化中文，不用破折号。
 - **每次交付都带版本号**：文件名加 `_vN`，页面顶部也标「第 N 版」。同名文件再次下载时，浏览器会自动改名，用户很容易贴错版本。
 - 用户发截图反馈时，先量截图再改：用像素算出比例，判断贴的是哪一版、用的是什么字体。Windows 电脑上没有苹方，标题会换成微软雅黑，正文会换成宋体加 Cambria，字在行里的位置和苹果设备不一样。
@@ -41,7 +41,7 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 - **字体栈**
   - 正文：`Optima-Regular, Optima, PingFangSC-light, PingFangTC-light, 'PingFang SC', Cambria, Cochin, Georgia, Times, 'Times New Roman', serif`
   - 标题：`Optima-Regular, Optima, PingFangSC-Regular, 'PingFang SC', 'Microsoft YaHei', sans-serif`
-- **正文容器**：id 为 article 的 section，style 是 `padding:0 14px;`。公众号自带两侧各 16px，所以文字区宽度是手机宽度减 60px，比如 375 宽的手机上是 315px，390 宽的是 330px，430 宽的是 370px。成品页面按 402 宽的小屏手机预览（文字区 342px），交付前再确认 440 宽的大屏（文字区 380px）。
+- **正文容器（强制左侧与标题视觉对齐）**：id 为 article 的 section，style 必须是 `padding:0;`（禁止再叠加上下之外的左右 padding）。公众号编辑器本身左右已经自带各 16px 留白，文章标题也贴在这条左侧基准线上，因此 `#article` 保持 `padding:0;` 才能让文章标题、一级标题左竖线、二级标题、正文段落、引用块左灰线、分隔线和全宽配图严格对齐在同一条左侧垂直线上。预览页外框统一给 16px 留白，375 宽手机文字区 343px，390 宽 358px，402 宽 370px，440 宽 408px。
 
 | 元素 | 内联样式要点 |
 |---|---|
@@ -53,7 +53,7 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 | 重点 | span 加 `color:#E0301E;`，不加粗，不加荧光笔底色 |
 | 一级标题（带竖线） | margin 0 0 37px 0；padding-left 12px；border-left 5px solid #F0382A；19px；font-weight normal；line-height 23px（竖线和字差不多高）；letter-spacing 0.6px；color #111111 |
 | 一级标题里的英文和数字（如 AI） | 单独用 span，font-weight bold，color #111111，不跟红色 |
-| 一级标题前的分隔线 | hr 标签：margin 30px 8px 42px 8px；border 0；height 1px；background-image 是 linear-gradient(to right, rgba(226,112,98,0), rgba(226,112,98,0.9), rgba(226,112,98,0)) |
+| 一级标题前的分隔线 | hr 标签：margin 30px 0 42px 0（左右边距必须为 0，贴齐左侧基准线）；border 0；height 1px；background-image 是 linear-gradient(to right, rgba(226,112,98,0), rgba(226,112,98,0.9), rgba(226,112,98,0)) |
 | 二级标题 | margin 38px 0 27px 0（紧跟在图片后面时上边距用 44px）；17px；font-weight normal；line-height 28px；color #111111 |
 | 配图 | 外层 p：margin 4px 0 20px；line-height 0。img：display block；width 100%；height auto |
 | 引用块 | section：margin 10px 0 24px；padding 22px 16px 16px 17px；background #F2F2F2；border-left 3px solid #D9D9D9。里面先放引号图片，再放文字：17px，line-height 1.56，color #3A3A3A，需要时用 br 标签手动断句 |
@@ -81,14 +81,18 @@ description: 把中文文章排成可直接粘贴进微信公众号的版式（A
 
 **调整**：用户说「多 1/5」「加 1/4」，就在当前看到的空白上乘以 1.2 或 1.25，只改用户点名的那一处。段落之间的 16px 没有点名不要动。
 
-## 4. 标题
+## 4. 标题与文本去编号预处理
 
+- **强制去掉冗余数字与序数编号（一级标题、二级标题、正文均适用）**：
+  - 一级标题自带渐隐分隔线、红竖线和大字号，二级标题自带独立段距，大标题和小标题本身已经足够看清层级，**一律不得保留 `01｜`、`一、`、`二、`、`1.`、`第一、`、`第一部分：` 这类数字或中文序数前缀**。
+  - 正文里成组的「第一，……第二，……第三，……」「一、……二、……」「1. …… 2. ……」读起来偏公文、不够顺口，必须在预处理阶段拆解或改写成自然的衔接表达（比如直接分段展开，或用「先……再……」「更关键的是」「除此之外」自然过渡）。
+  - 预处理只去掉生硬编号和调整衔接词，不改动原文意思和观点；改过的句子放进改动清单给用户核对。
 - 一级和二级标题优先用「四字：四字」的对仗格式，越简单越好，但要能看懂，整体视觉对齐。
   - 一级标题例子：传统公司：经验难留 / AI 原生：经验沉淀 / 如何开始：先选流程
   - 二级标题例子：信息感知：看见业务 / 规则判断：划清边界
 - **不为了凑对仗硬加词。** 后半句读起来突兀时就去掉。结尾一节直接用「写在最后」，不加后半句。
-- 原文有小节就沿用原文的意思，不另起内容。原文自带的标题照原文用，不改成四字对仗。
-- 标题最好一行放下。尾字锁定能保证折行时最后一行不止一个字，但两行的标题不好看，太长时去掉「一、」「二、」这类编号；要去就所有标题一起去，保持一致。
+- 原文有小节就沿用原文的意思，不另起内容；只剥离标题前多余的数字或序数词。
+- 标题最好一行放下，尾字锁定能保证折行时最后一行不止一个字，但两行的标题不够利落。
 
 ## 5. 断行
 
